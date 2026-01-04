@@ -13,7 +13,6 @@ def home():
 @app.route('/api/hisseler')
 def get_hisseler():
     try:
-        # Tüm BIST hisselerini çek
         hisse = Hisse()
         df = hisse.tum_hisseler()
         
@@ -21,7 +20,7 @@ def get_hisseler():
         for _, row in df.iterrows():
             hisseler.append({
                 "kod": row['Kod'],
-                "ad": row['Kod'],  # İş Yatırım'da tam isim yok, kod kullanıyoruz
+                "ad": row['Kod'],
                 "kapanis": float(row['Kapanis']) if pd.notna(row['Kapanis']) else 0.0
             })
         
@@ -33,13 +32,11 @@ def get_hisseler():
 def get_hisse_detay(symbol):
     try:
         hisse = Hisse()
-        # Son 100 günlük veri çek
         df = hisse.gunluk(sembol=symbol, baslangic='01-01-2024', bitis='04-01-2026')
         
         if df.empty:
             return jsonify({"error": "Veri bulunamadı"}), 404
         
-        # DataFrame'i listeye çevir
         data = []
         for _, row in df.iterrows():
             data.append({
@@ -59,10 +56,3 @@ def get_hisse_detay(symbol):
 
 if __name__ == '__main__':
     app.run(debug=True)
-```
-
-5. **Commit changes** butonuna bas (yeşil buton)
-
-Render otomatik yeniden deploy edecek (1-2 dakika). Sonra tekrar dene:
-```
-https://hisse-analiz-backend.onrender.com/api/hisseler
