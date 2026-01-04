@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from isyatirimhisse import Hisse
+import isyatirimhisse as iyh
 from datetime import datetime, timedelta
 import random
 import math
@@ -107,11 +107,12 @@ def get_real_price(symbol):
                 return cached_price
         
         # Gerçek veri çek
-        hisse = Hisse(symbol)
-        df = hisse.gunluk(baslangic=(datetime.now() - timedelta(days=5)).strftime("%d-%m-%Y"))
+        hisse = iyh.Hisse(symbol)
+        gunluk_data = hisse.gunluk()
         
-        if df is not None and len(df) > 0:
-            price = float(df.iloc[-1]['Kapanis'])
+        if gunluk_data is not None and len(gunluk_data) > 0:
+            # Son kapanış fiyatı
+            price = float(gunluk_data.iloc[-1]['Kapanis'])
             PRICE_CACHE[symbol] = (datetime.now(), price)
             return price
         
