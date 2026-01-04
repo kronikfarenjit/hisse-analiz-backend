@@ -230,7 +230,7 @@ def analyze_single(symbol):
 
 @app.route('/api/filtre')
 def filter_stocks():
-    """Hisseleri filtrele"""
+    """Hisseleri filtrele - SIRALANMIŞ"""
     direction = request.args.get('direction', '').upper()
     limit = int(request.args.get('limit', 100))
     
@@ -242,6 +242,14 @@ def filter_stocks():
             continue
         
         results.append(analysis)
+    
+    # SIRALAMA - EN YÜKSEK SKORDAN AŞAĞIYA
+    if direction == "YUKARI":
+        results.sort(key=lambda x: x['confirm_bull_score'] + x['early_bull_score'], reverse=True)
+    elif direction == "ASAGI":
+        results.sort(key=lambda x: x['confirm_bear_score'] + x['early_bear_score'], reverse=True)
+    else:
+        results.sort(key=lambda x: x['confirm_bull_score'] + x['early_bull_score'], reverse=True)
     
     return jsonify({
         "count": len(results),
