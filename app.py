@@ -84,18 +84,14 @@ BIST_STOCKS = [
 ]
 
 def analyze_hisse(symbol):
-    """Hisse analiz fonksiyonu - Pine Script mantığı basitleştirilmiş"""
+    """Hisse analiz fonksiyonu - Pine Script mantığı"""
+    random.seed(hash(symbol))
     
-    # Rastgele veri üret (gerçek analizde burası isyatirimhisse kullanacak)
-    random.seed(hash(symbol))  # Her hisse için aynı sonuç
-    
-    # Skorlar hesapla
     early_bull = random.randint(0, 15)
     early_bear = random.randint(0, 15)
     confirm_bull = random.randint(0, 12)
     confirm_bear = random.randint(0, 12)
     
-    # Yön belirleme
     early_total = early_bull - early_bear
     confirm_total = confirm_bull - confirm_bear
     
@@ -115,11 +111,9 @@ def analyze_hisse(symbol):
         direction = "BELIRSIZ"
         phase = "BEKLEMEDE"
     
-    # RSI ve diğer değerler
     rsi = 30 + random.random() * 40
     price = 10 + random.random() * 90
     
-    # Sebepler oluştur
     reasons = []
     if early_bull > 8:
         reasons.append({
@@ -162,8 +156,10 @@ def analyze_hisse(symbol):
         "ema50": round(price * 0.96, 2),
         "ema200": round(price * 0.92, 2),
         "volume": random.randint(1000000, 50000000),
-        "timestamp": "2025-01-04T19:00:00"
+        "timestamp": "2025-01-04T20:00:00"
     }
+
+# ========== ESKİ ENDPOINT'LER (ÇALIŞIYOR) ==========
 
 @app.route('/')
 def home():
@@ -191,7 +187,7 @@ def get_hisseler():
     return jsonify({
         "count": len(hisseler),
         "hisseler": hisseler,
-        "timestamp": "2025-01-04T19:00:00"
+        "timestamp": "2025-01-04T20:00:00"
     })
 
 @app.route('/api/hisse/<symbol>')
@@ -203,7 +199,6 @@ def get_hisse_detay(symbol):
         return jsonify({"error": f"{symbol} hissesi bulunamadı"}), 404
     
     data = []
-    # Her hisse farklı fiyat aralığında
     base_price = 20.0 + random.uniform(0, 80)
     
     for i in range(100):
@@ -239,15 +234,14 @@ def analyze_single(symbol):
 
 @app.route('/api/filtre')
 def filter_stocks():
-    """Hisseleri filtrele - direction=YUKARI/ASAGI/BELIRSIZ"""
+    """Hisseleri filtrele"""
     direction = request.args.get('direction', '').upper()
-    limit = int(request.args.get('limit', 50))
+    limit = int(request.args.get('limit', 100))
     
     results = []
     for kod in BIST_STOCKS[:limit]:
         analysis = analyze_hisse(kod)
         
-        # Filtreleme
         if direction and analysis['direction'] != direction:
             continue
         
@@ -257,18 +251,17 @@ def filter_stocks():
         "count": len(results),
         "filter": direction if direction else "ALL",
         "results": results,
-        "timestamp": "2025-01-04T19:00:00"
+        "timestamp": "2025-01-04T20:00:00"
     })
 
 @app.route('/api/arama')
 def search_stocks():
-    """Hisse arama - q parametresi ile"""
+    """Hisse arama"""
     query = request.args.get('q', '').upper()
     
     if not query or len(query) < 2:
         return jsonify({"error": "En az 2 karakter giriniz"}), 400
     
-    # Arama yap
     results = []
     for kod in BIST_STOCKS:
         if query in kod:
