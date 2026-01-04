@@ -1,10 +1,19 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from isyatirimhisse import Hisse
+from datetime import datetime, timedelta
 import random
 import math
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
+
+# Cache için
+PRICE_CACHE = {}
 
 # TÜM BIST HİSSELERİ - 592 ADET
 BIST_STOCKS = [
@@ -87,6 +96,31 @@ BIST_STOCKS = [
     "PSGYO", "SNGYO", "TUKAS", "AKBNK", "YKBNK", "EREGL", "BTCIM", "TSPOR",
     "HEKTS", "PAHOL", "ADESE", "PEKGY", "CANTE", "GSRAY", "ISCTR", "SASA"
 ]
+
+def get_real_price(symbol):
+    """İş Yatırım'dan gerçek fiyat çek"""
+    try:
+        # Cache kontrolü (5 dakika)
+        if symbol in PRICE_CACHE:
+            cached_time, cached_price = PRICE_CACHE[symbol]
+            if (datetime.now() - cached_time).seconds < 300:
+                return cached_price
+        
+        # Gerçek veri çek
+        hisse = Hisse(symbol)
+        df = hisse.gunluk(baslangic=(datetime.now() - timedelta(days=5)).strftime("%d-%m-%Y"))
+        
+        if df is not None and len(df) > 0:
+            price = float(df.iloc[-1]['Kapanis'])
+            PRICE_CACHE[symbol] = (datetime.now(), price)
+            return price
+        
+        # API hatası varsa rastgele döndür
+        return 10 + random.random() * 90
+        
+    except Exception as e:
+        logger.error(f"Price fetch error for {symbol}: {str(e)}")
+        return 10 + random.random() * 90
 
 def analyze_hisse_pine(symbol, sensitivity="Orta"):
     """Pine Script mantığı - Geliştirilmiş skorlama"""
@@ -298,7 +332,8 @@ def analyze_hisse_pine(symbol, sensitivity="Orta"):
     else:
         direction = "BELIRSIZ"
     
-    price = 10 + random.random() * 90
+    # GERÇEK FİYAT ÇEK
+    price = get_real_price(symbol)
     
     return {
         "kod": symbol,
