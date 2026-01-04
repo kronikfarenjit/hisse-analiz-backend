@@ -1,10 +1,17 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
-from isyatirimhisse.hisse import Hisse
 import pandas as pd
+import random
 
 app = Flask(__name__)
 CORS(app)
+
+# Gerçek BIST hisse kodları
+BIST_STOCKS = [
+    "THYAO", "GARAN", "AKBNK", "EREGL", "SAHOL", "PETKM", "SISE", "TTKOM",
+    "KCHOL", "VAKBN", "TCELL", "TUPRS", "BIMAS", "ASELS", "SASA", "KOZAL",
+    "KOZAA", "TAVHL", "PGSUS", "ENKAI", "FROTO", "TOASO", "ARCLK", "DOHOL"
+]
 
 @app.route('/')
 def home():
@@ -12,47 +19,39 @@ def home():
 
 @app.route('/api/hisseler')
 def get_hisseler():
-    try:
-        hisse = Hisse()
-        df = hisse.tum_hisseler()
-        
-        hisseler = []
-        for _, row in df.iterrows():
-            hisseler.append({
-                "kod": row['Kod'],
-                "ad": row['Kod'],
-                "kapanis": float(row['Kapanis']) if pd.notna(row['Kapanis']) else 0.0
-            })
-        
-        return jsonify({"data": hisseler})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    """Test için dummy hisse listesi"""
+    hisseler = []
+    for kod in BIST_STOCKS:
+        hisseler.append({
+            "kod": kod,
+            "ad": kod,
+            "kapanis": round(10 + random.uniform(0, 100), 2)
+        })
+    return jsonify({"data": hisseler})
 
 @app.route('/api/hisse/<symbol>')
 def get_hisse_detay(symbol):
-    try:
-        hisse = Hisse()
-        df = hisse.gunluk(sembol=symbol, baslangic='01-01-2024', bitis='04-01-2026')
+    """Test için dummy geçmiş veri"""
+    data = []
+    base_price = 50.0
+    
+    for i in range(100):
+        change = random.uniform(-2, 2)
+        price = base_price + change
         
-        if df.empty:
-            return jsonify({"error": "Veri bulunamadı"}), 404
-        
-        data = []
-        for _, row in df.iterrows():
-            data.append({
-                "kod": symbol,
-                "ad": symbol,
-                "tarih": str(row['Tarih']),
-                "acilis": float(row['Acilis']) if pd.notna(row['Acilis']) else 0.0,
-                "yuksek": float(row['Yuksek']) if pd.notna(row['Yuksek']) else 0.0,
-                "dusuk": float(row['Dusuk']) if pd.notna(row['Dusuk']) else 0.0,
-                "kapanis": float(row['Kapanis']) if pd.notna(row['Kapanis']) else 0.0,
-                "hacim": int(row['Hacim']) if pd.notna(row['Hacim']) else 0
-            })
-        
-        return jsonify({"data": data})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        data.append({
+            "kod": symbol,
+            "ad": symbol,
+            "tarih": f"2024-{(i % 12) + 1:02d}-{(i % 28) + 1:02d}",
+            "acilis": round(price - abs(change/2), 2),
+            "yuksek": round(price + abs(change), 2),
+            "dusuk": round(price - abs(change), 2),
+            "kapanis": round(price, 2),
+            "hacim": random.randint(1000000, 10000000)
+        })
+        base_price = price
+    
+    return jsonify({"data": data})
 
 if __name__ == '__main__':
     app.run(debug=True)
