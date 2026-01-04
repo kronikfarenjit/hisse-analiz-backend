@@ -1,5 +1,5 @@
 Flask==3.0.0
 Flask-CORS==4.0.0
-isyatirimhisse==0.1.4
+isyatirimhisse==5.0.0
 pandas==2.1.4
 gunicorn==21.2.0
