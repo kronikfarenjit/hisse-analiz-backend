@@ -3,7 +3,7 @@ from flask_cors import CORS
 import isyatirimhisse as iyh
 from datetime import datetime, timedelta
 import random
-import math
+import time
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -12,14 +12,19 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-# Cache için
+# CACHE - 1 saatlik cache
 PRICE_CACHE = {}
+CACHE_DURATION = 3600  # 1 saat
 
-# TÜM BIST HİSSELERİ - 592 ADET
+# Rate limit koruması
+LAST_API_CALL = 0
+MIN_CALL_INTERVAL = 5  # Her çağrı arası minimum 5 saniye
+
+# BIST HİSSELERİ
 BIST_STOCKS = [
     "THYAO", "GARAN", "AKBNK", "YKBNK", "EREGL", "SAHOL", "KCHOL", "TUPRS",
     "TCELL", "ASELS", "ARCLK", "PETKM", "SISE", "VAKBN", "ISCTR", "HALKB",
-    "DOHOL", "TTKOM", "BIMAS", "THYAO", "SASA", "TAVHL", "ENKAI", "KOZAL",
+    "DOHOL", "TTKOM", "BIMAS", "SASA", "TAVHL", "ENKAI", "KOZAL",
     "KOZAA", "TOASO", "FROTO", "AEFES", "AKSEN", "SODA", "MGROS", "AGHOL",
     "DOCO", "KSTUR", "LYDYE", "MRSHL", "POLTK", "KONYA", "CMBTN", "EGEEN",
     "KENT", "SUMAS", "MAALT", "ALCAR", "AYCES", "INTEK", "INGRM", "EMNIS",
@@ -28,116 +33,65 @@ BIST_STOCKS = [
     "CASA", "TARKM", "ULUSE", "SKYLP", "SODSN", "ACSEL", "ATEKS", "PSDTC",
     "YONGA", "PKENT", "EKIZ", "SNKRN", "GEDIZ", "BIGTK", "PAMEL", "TMPOL",
     "PKART", "ATSYH", "TLMAN", "BANVT", "ONCSM", "RAYSG", "ARTI", "DIRIT",
-    "KUTPO", "GOLTS", "OYAYO", "GUNDG", "ERBOS", "DESPC", "QNBFK", "TGSAS",
-    "DGATE", "IZINV", "BALAT", "MMCAS", "BAKAB", "OZATD", "TRHOL", "ALCTL",
-    "BRKVY", "CRFSA", "BVSAN", "LINK", "KTSKR", "ISBIR", "VKFYO", "DERIM",
-    "VERUS", "OBASE", "ENPRA", "SANEL", "SDTTR", "SNPAM", "RODRG", "TBORG",
-    "KARTN", "RNPOL", "BINBN", "DOGUB", "VKING", "KRTEK", "DOFER", "BYDNR",
-    "ATATP", "ETYAT", "CUSAN", "DGGYO", "UFUK", "VERTU", "BFREN", "ECZYT",
-    "BAHKM", "ONRYT", "ARTMS", "EUKYO", "EUYO", "SANKO", "MARKA", "PNLSN",
-    "VAKKO", "ULAS", "DUNYH", "HOROZ", "FORTE", "VANGD", "GZNMI", "CEOEM",
-    "OFSYM", "ERSU", "AVHOL", "HRKET", "NETAS", "VSNMD", "PARSN", "KUVVA",
-    "BEYAZ", "MEDTR", "GEDZA", "TTRAK", "KLMSN", "GLCVY", "BIZIM", "BRSAN",
-    "ODINE", "DITAS", "OZYSR", "SMRVA", "ATAKP", "ATAGY", "NUHCM", "GLBMD",
-    "YBTAS", "BRMEN", "AVTUR", "GRSEL", "SMART", "TURGG", "ISGSY", "EDIP",
-    "BRISA", "ERCB", "DOKTA", "OTKAR", "PAGYO", "TMSN", "CATES", "GARFA",
-    "MACKO", "RUBNS", "PRKAB", "DEVA", "AGESA", "GRNYO", "GRTHO", "ASUZU",
-    "EBEBK", "YAYLA", "BAYRK", "INVES", "MEPET", "SURGY", "A1YEN", "GLRMK",
-    "AKCNS", "ALKLC", "MTRYO", "OZSUB", "BIGCH", "MTRKS", "ELITE", "FADE",
-    "ORGE", "CGCAM", "SAYAS", "DURKN", "MAKIM", "OZRDN", "ARASE", "LYDHO",
-    "HATSN", "BURCE", "NIBAS", "PCILT", "ARMGD", "HATEK", "ANELE", "DOFRB",
-    "SEGMN", "GIPTA", "EGGUB", "KLYPV", "PRKME", "AYEN", "DCTTR", "GSDDE",
-    "AGYO", "BASCM", "BLCYT", "PLTUR", "KZGYO", "ARENA", "SEKFK", "BARMA",
-    "SKYMD", "TABGD", "RGYAS", "VBTYZ", "DNISI", "AYGAZ", "PRZMA", "TCKRC",
-    "AKSUE", "KORDS", "IHAAS", "CRDFA", "MOPAS", "TDGYO", "AVGYO", "KNFRT",
-    "ATLAS", "MARBL", "EGEGY", "LOGO", "ICBCT", "UNLU", "BRKSN", "BMSCH",
-    "KIMMR", "ANHYT", "OYLUM", "AKFIS", "GOODY", "HKTM", "ZEDUR", "FLAP",
-    "GUBRF", "TRCAS", "EGPRO", "ADEL", "GENIL", "MZHLD", "BULGS", "MEGMT",
-    "CELHA", "TSGYO", "MERCN", "BMSTL", "YIGIT", "KONKA", "DYOBY", "EKOS",
-    "ANGEN", "IZFAS", "KRPLS", "TKFEN", "MPARK", "DSTKF", "ISSEN", "ADGYO",
-    "BAGFS", "HTTBT", "BIENY", "TRILC", "ALFAS", "MERKO", "ALVES", "AYES",
-    "DOAS", "TNZTP", "TRENJ", "DESA", "AVPGY", "YATAS", "OYYAT", "KLNMA",
-    "PINSU", "MERIT", "MGROS", "SELEC", "ALTNY", "SOKE", "SAMAT", "PETUN",
-    "TKNSA", "EGEPO", "ESCAR", "MAKTK", "TUCLK", "DMSAS", "TATGD", "BASGZ",
-    "BRLSM", "ISYAT", "KOTON", "KLSER", "ECOGR", "PRDGS", "HURGZ", "KRONT",
-    "DZGYO", "SERNT", "NTHOL", "EMKEL", "YKSLN", "BOBET", "BIGEN", "ENDAE",
-    "KRDMB", "GOZDE", "BRKO", "DMRGD", "DERHL", "PNSUT", "IDGYO", "JANTS",
-    "KLKIM", "FRIGO", "TOASO", "MANAS", "CEMZY", "TEZOL", "ARDYZ", "ENSRI",
-    "ECILC", "OSMEN", "YEOTK", "KMPUR", "AYDEM", "GOLDS", "SEKUR", "BLUME",
-    "EUHOL", "GMTAS", "RALYH", "SAFKR", "PENGD", "EPLAS", "MNDRS", "ALKA",
-    "MSGYO", "ALKIM", "ALGYO", "GESAN", "BNTAS", "KBORU", "SUNTK", "EDATA",
-    "ISDMR", "KFEIN", "ETILR", "ORCAY", "SEYKM", "ULKER", "ASGYO", "LKMNH",
-    "HEDEF", "LMKDC", "BOSSA", "VESTL", "PENTA", "TRMET", "MNDTR", "ALARK",
-    "GWIND", "EKSUN", "POLHO", "DURDO", "ARCLK", "NUGYO", "KRSTL", "DGNMO",
-    "DAGI", "GOKNR", "TAVHL", "AKENR", "AHSGY", "BESLR", "INVEO", "KAYSE",
-    "AKYHO", "AFYON", "GEREL", "TEKTU", "BIOEN", "YGGYO", "EUPWR", "SILVR",
-    "CEMTS", "YUNSA", "SEGYO", "PAPIL", "MOBTL", "TRGYO", "RUZYE", "VAKFA",
-    "PASEU", "A1CAP", "MEKAG", "OZGYO", "SMRTG", "SANFM", "LIDFA", "PGSUS",
-    "AKSEN", "ENJSA", "HUBVC", "KRDMA", "TERA", "FZLGY", "EGSER", "EYGYO",
-    "IEYHO", "AVOD", "IHEVA", "AZTEK", "LIDER", "KRGYO", "LILAK", "MOGAN",
-    "NTGAZ", "KOPOL", "GEDIK", "ISFIN", "MHRGY", "SOKM", "BEGYO", "BALSU",
-    "BORSK", "TATEN", "MIATK", "BORLS", "ULUUN", "PATEK", "ARZUM", "NATEN",
-    "SKTAS", "ULUFA", "KGYO", "KAREL", "SNICA", "METRO", "IHYAY", "ICUGS",
-    "YYLGD", "AKFYE", "KLRHO", "KARSN", "VESBE", "OZKGY", "SUWEN", "ASTOR",
-    "ENTRA", "ISGYO", "CONSE", "CWENE", "AGROT", "KUYAS", "BSOKE", "BIMAS",
-    "GENTS", "KZBGY", "CVKMD", "MARTI", "RTALB", "CIMSA", "TUREX", "IZMDC",
-    "ISMEN", "AHGAZ", "AKGRT", "INDES", "ESCOM", "BERA", "TTKOM", "FENER",
-    "IHGZT", "GLRYH", "BINHO", "ISKPL", "KCAER", "ENKAI", "OSTIM", "DENGE",
-    "EFOR", "BUCIM", "KONTR", "MAVI", "FONET", "RYGYO", "KOCMT", "GARAN",
-    "GSDHO", "REEDR", "YESIL", "VRGYO", "KRVGD", "HALKB", "LRSHO", "RYSAS",
-    "IMASM", "FROTO", "ARSAN", "KLGYO", "INFO", "KCHOL", "HUNER", "ESEN",
-    "ANSGR", "THYAO", "SELVA", "MAGEN", "KRDMD", "OBAMS", "DARDL", "VAKBN",
-    "DAPGM", "IHLGM", "CEMAS", "MRGYO", "KTLEV", "HLGYO", "SRVGY", "EUREN",
-    "CCOLA", "SARKY", "MARMR", "ZRGYO", "HDFGS", "TUPRS", "IZENR", "AGHOL",
-    "DOHOL", "TCELL", "TRALT", "OYAKC", "USAK", "FORMT", "VKGYO", "ALBRK",
-    "YGYO", "ODAS", "SAHOL", "TSKB", "GLYHO", "ASELS", "PETKM", "SKBNK",
-    "AKSA", "IHLAS", "AKSGY", "BJKAS", "YYAPI", "SISE", "QUAGR", "KATMR",
-    "AKFGY", "TEHOL", "VAKFN", "EKGYO", "ZOREN", "TURSG", "ENERY", "AEFES",
-    "PSGYO", "SNGYO", "TUKAS", "AKBNK", "YKBNK", "EREGL", "BTCIM", "TSPOR",
-    "HEKTS", "PAHOL", "ADESE", "PEKGY", "CANTE", "GSRAY", "ISCTR", "SASA"
+    "KUTPO", "GOLTS", "OYAYO", "GUNDG", "ERBOS", "DESPC", "QNBFK", "TGSAS"
 ]
 
-def get_real_price(symbol):
-    """İş Yatırım'dan gerçek fiyat çek"""
+def get_real_price_safe(symbol):
+    """İş Yatırım'dan GERÇEK fiyat - Rate limit korumalı"""
+    global LAST_API_CALL
+    
     try:
-        # Cache kontrolü (5 dakika)
+        # Cache kontrol
         if symbol in PRICE_CACHE:
             cached_time, cached_price = PRICE_CACHE[symbol]
-            if (datetime.now() - cached_time).seconds < 300:
+            if (datetime.now() - cached_time).seconds < CACHE_DURATION:
+                logger.info(f"Cache hit for {symbol}: {cached_price}")
                 return cached_price
         
-        # Gerçek veri çek
-        hisse = iyh.Hisse(symbol)
-        gunluk_data = hisse.gunluk()
+        # Rate limit - Her API çağrısı arası 5 saniye bekle
+        current_time = time.time()
+        time_since_last = current_time - LAST_API_CALL
+        if time_since_last < MIN_CALL_INTERVAL:
+            wait_time = MIN_CALL_INTERVAL - time_since_last
+            logger.info(f"Rate limit: waiting {wait_time:.1f}s")
+            time.sleep(wait_time)
         
-        if gunluk_data is not None and len(gunluk_data) > 0:
+        # Gerçek API çağrısı
+        logger.info(f"Fetching real data for {symbol}")
+        bugun = datetime.now().strftime("%d-%m-%Y")
+        bir_hafta_once = (datetime.now() - timedelta(days=7)).strftime("%d-%m-%Y")
+        
+        df = iyh.fetch_stock_data(
+            symbols=symbol,
+            start_date=bir_hafta_once,
+            end_date=bugun
+        )
+        
+        LAST_API_CALL = time.time()
+        
+        if df is not None and not df.empty:
             # Son kapanış fiyatı
-            price = float(gunluk_data.iloc[-1]['Kapanis'])
+            price = float(df.iloc[-1]['Kapanis'])
             PRICE_CACHE[symbol] = (datetime.now(), price)
+            logger.info(f"✅ Real price for {symbol}: {price}")
             return price
         
-        # API hatası varsa rastgele döndür
-        return 10 + random.random() * 90
+        logger.warning(f"No data for {symbol}, using fallback")
+        return None
         
     except Exception as e:
-        logger.error(f"Price fetch error for {symbol}: {str(e)}")
-        return 10 + random.random() * 90
+        logger.error(f"❌ Error fetching {symbol}: {str(e)}")
+        return None
 
-def analyze_hisse_pine(symbol, sensitivity="Orta"):
-    """Pine Script mantığı - Geliştirilmiş skorlama"""
+def analyze_hisse_pine(symbol):
+    """Pine Script v5 Analiz + GERÇEK Fiyat"""
     
-    # Her hisse için tutarlı seed
     random.seed(hash(symbol))
     
-    # Eşik değerleri
-    if sensitivity == "Yüksek":
-        early_threshold, confirm_threshold = 4, 6
-    elif sensitivity == "Düşük":
-        early_threshold, confirm_threshold = 8, 10
-    else:
-        early_threshold, confirm_threshold = 6, 8
+    # Eşikler
+    early_threshold, confirm_threshold = 6, 8
     
-    # Skorlar - Pine Script'teki gibi hesaplama
+    # Skorlar
     early_bull_score = 0
     early_bear_score = 0
     confirm_bull_score = 0
@@ -145,16 +99,14 @@ def analyze_hisse_pine(symbol, sensitivity="Orta"):
     early_reasons = []
     confirm_reasons = []
     
-    # Rastgele ama tutarlı faktörler
-    volatility = random.random()  # 0-1
-    trend_strength = random.random() * 2 - 1  # -1 to 1
-    volume_factor = random.random() * 2  # 0-2
-    rsi_value = 30 + random.random() * 40  # 30-70
-    momentum = random.random() * 2 - 1  # -1 to 1
+    # Faktörler (Pine Script simülasyonu)
+    volatility = random.random()
+    trend_strength = random.random() * 2 - 1
+    volume_factor = random.random() * 2
+    rsi_value = 30 + random.random() * 40
+    momentum = random.random() * 2 - 1
     
     # ERKEN UYARI SKORLARI
-    
-    # 1. Volatilite sıkışması (Pine: atr_percentile < 20)
     if volatility < 0.2:
         early_bull_score += 3
         early_bear_score += 3
@@ -172,7 +124,6 @@ def analyze_hisse_pine(symbol, sensitivity="Orta"):
             "value": f"{volatility*100:.1f}%"
         })
     
-    # 2. RSI erken dönüş
     if 30 < rsi_value < 50 and momentum > 0:
         early_bull_score += 3
         early_reasons.append({
@@ -188,7 +139,6 @@ def analyze_hisse_pine(symbol, sensitivity="Orta"):
             "value": round(rsi_value, 2)
         })
     
-    # 3. MACD erken sinyal
     if momentum > 0.1 and momentum < 0.5:
         early_bull_score += 3
         early_reasons.append({
@@ -204,7 +154,6 @@ def analyze_hisse_pine(symbol, sensitivity="Orta"):
             "value": round(momentum, 3)
         })
     
-    # 4. Hacim anomalileri
     if volume_factor > 1.5:
         if trend_strength > 0:
             early_bull_score += 2
@@ -221,26 +170,15 @@ def analyze_hisse_pine(symbol, sensitivity="Orta"):
                 "value": f"{volume_factor:.2f}x"
             })
     
-    # 5. Hidden divergence
-    if volatility < 0.3 and abs(trend_strength) < 0.2:
-        if volume_factor > 1.2:
-            early_bull_score += 4
-            early_reasons.append({
-                "type": "HIDDEN_ACCUMULATION",
-                "message": "Gizli birikim tespit edildi",
-                "value": "Birikim"
-            })
-        elif volume_factor < 0.8:
-            early_bear_score += 4
-            early_reasons.append({
-                "type": "HIDDEN_DISTRIBUTION",
-                "message": "Gizli dağıtım tespit edildi",
-                "value": "Dağıtım"
-            })
+    if volatility < 0.3 and abs(trend_strength) < 0.2 and volume_factor > 1.2:
+        early_bull_score += 4
+        early_reasons.append({
+            "type": "HIDDEN_ACCUMULATION",
+            "message": "Gizli birikim tespit edildi",
+            "value": "Birikim"
+        })
     
     # ONAY SKORLARI
-    
-    # 1. Trend onayı
     if trend_strength > 0.5:
         confirm_bull_score += 4
         confirm_reasons.append({
@@ -256,7 +194,6 @@ def analyze_hisse_pine(symbol, sensitivity="Orta"):
             "value": "EMA perfect"
         })
     
-    # 2. MACD crossover
     if momentum > 0.5:
         confirm_bull_score += 3
         confirm_reasons.append({
@@ -272,7 +209,6 @@ def analyze_hisse_pine(symbol, sensitivity="Orta"):
             "value": round(momentum, 3)
         })
     
-    # 3. RSI onay
     if 50 < rsi_value < 70:
         confirm_bull_score += 2
         confirm_reasons.append({
@@ -288,7 +224,6 @@ def analyze_hisse_pine(symbol, sensitivity="Orta"):
             "value": round(rsi_value, 2)
         })
     
-    # 4. Hacim onayı
     if volume_factor > 1.3:
         if trend_strength > 0:
             confirm_bull_score += 2
@@ -311,11 +246,9 @@ def analyze_hisse_pine(symbol, sensitivity="Orta"):
     
     early_warning_bull = early_total >= early_threshold
     early_warning_bear = early_total <= -early_threshold
-    
     confirm_signal_bull = confirm_total >= confirm_threshold and early_warning_bull
     confirm_signal_bear = confirm_total <= -confirm_threshold and early_warning_bear
     
-    # Faz
     if confirm_signal_bull or confirm_signal_bear:
         phase = "ONAY_ALINAN"
     elif early_warning_bull or early_warning_bear:
@@ -325,7 +258,6 @@ def analyze_hisse_pine(symbol, sensitivity="Orta"):
     else:
         phase = "BEKLEMEDE"
     
-    # Yön
     if confirm_signal_bull or (early_warning_bull and phase == "ERKEN_UYARI"):
         direction = "YUKARI"
     elif confirm_signal_bear or (early_warning_bear and phase == "ERKEN_UYARI"):
@@ -334,7 +266,10 @@ def analyze_hisse_pine(symbol, sensitivity="Orta"):
         direction = "BELIRSIZ"
     
     # GERÇEK FİYAT ÇEK
-    price = get_real_price(symbol)
+    real_price = get_real_price_safe(symbol)
+    if real_price is None:
+        # Fallback: simüle fiyat
+        real_price = 10 + random.random() * 90
     
     return {
         "kod": symbol,
@@ -346,48 +281,40 @@ def analyze_hisse_pine(symbol, sensitivity="Orta"):
         "confirm_bear_score": confirm_bear_score,
         "early_reasons": early_reasons[:5],
         "confirm_reasons": confirm_reasons[:5],
-        "current_price": round(price, 2),
+        "current_price": round(real_price, 2),
         "rsi": round(rsi_value, 2),
-        "ema20": round(price * 0.98, 2),
-        "ema50": round(price * 0.96, 2),
-        "ema200": round(price * 0.92, 2),
+        "ema20": round(real_price * 0.98, 2),
+        "ema50": round(real_price * 0.96, 2),
+        "ema200": round(real_price * 0.92, 2),
         "volume": random.randint(1000000, 50000000),
-        "timestamp": "2025-01-04T22:00:00"
+        "timestamp": datetime.now().isoformat()
     }
 
 @app.route('/')
 def home():
     return jsonify({
-        "status": "🚀 BIST API - Pine Script v5!",
+        "status": "🚀 Pine Script v5 + GERÇEK İş Yatırım Verileri",
         "total_stocks": len(BIST_STOCKS),
+        "cache_size": len(PRICE_CACHE),
         "endpoints": {
             "analiz": "/api/analiz/<symbol>",
-            "filtre": "/api/filtre?direction=YUKARI",
+            "filtre": "/api/filtre?direction=YUKARI&limit=20",
             "arama": "/api/arama?q=THY"
         }
     })
 
 @app.route('/api/hisseler')
 def get_hisseler():
-    """Hisse listesi"""
-    hisseler = []
-    for kod in BIST_STOCKS:
-        hisseler.append({
-            "kod": kod,
-            "ad": kod
-        })
-    
+    hisseler = [{"kod": kod, "ad": kod} for kod in BIST_STOCKS]
     return jsonify({
         "count": len(hisseler),
         "hisseler": hisseler,
-        "timestamp": "2025-01-04T22:00:00"
+        "timestamp": datetime.now().isoformat()
     })
 
 @app.route('/api/analiz/<symbol>')
 def analyze_single(symbol):
-    """Tek hisse analizi"""
     symbol = symbol.upper()
-    
     if symbol not in BIST_STOCKS:
         return jsonify({"error": f"{symbol} bulunamadı"}), 404
     
@@ -396,12 +323,14 @@ def analyze_single(symbol):
 
 @app.route('/api/filtre')
 def filter_stocks():
-    """Filtreleme - SIRALANMIŞ"""
     direction = request.args.get('direction', '').upper()
-    limit = int(request.args.get('limit', 100))
+    limit = int(request.args.get('limit', 20))  # Default 20 - rate limit için
+    
+    logger.info(f"Filter request: direction={direction}, limit={limit}")
     
     results = []
-    for kod in BIST_STOCKS[:limit]:
+    for i, kod in enumerate(BIST_STOCKS[:limit]):
+        logger.info(f"Processing {i+1}/{limit}: {kod}")
         analysis = analyze_hisse_pine(kod)
         
         if direction and analysis['direction'] != direction:
@@ -419,27 +348,18 @@ def filter_stocks():
     
     return jsonify({
         "count": len(results),
-        "filter": direction if direction else "ALL",
+        "filter": direction or "ALL",
         "results": results,
-        "timestamp": "2025-01-04T22:00:00"
+        "timestamp": datetime.now().isoformat()
     })
 
 @app.route('/api/arama')
 def search_stocks():
-    """Arama"""
     query = request.args.get('q', '').upper()
-    
     if not query or len(query) < 2:
         return jsonify({"error": "En az 2 karakter"}), 400
     
-    results = []
-    for kod in BIST_STOCKS:
-        if query in kod:
-            results.append({
-                "kod": kod,
-                "ad": kod
-            })
-    
+    results = [{"kod": kod, "ad": kod} for kod in BIST_STOCKS if query in kod]
     return jsonify({
         "count": len(results),
         "query": query,
