@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from flask_cors import CORS
 import random
 
@@ -83,84 +83,6 @@ BIST_STOCKS = [
     "HEKTS", "PAHOL", "ADESE", "PEKGY", "CANTE", "GSRAY", "ISCTR", "SASA"
 ]
 
-def analyze_hisse(symbol):
-    """Hisse analiz fonksiyonu - Pine Script mantığı"""
-    random.seed(hash(symbol))
-    
-    early_bull = random.randint(0, 15)
-    early_bear = random.randint(0, 15)
-    confirm_bull = random.randint(0, 12)
-    confirm_bear = random.randint(0, 12)
-    
-    early_total = early_bull - early_bear
-    confirm_total = confirm_bull - confirm_bear
-    
-    if confirm_total >= 6:
-        direction = "YUKARI"
-        phase = "ONAY_ALINAN"
-    elif confirm_total <= -6:
-        direction = "ASAGI"
-        phase = "ONAY_ALINAN"
-    elif early_total >= 4:
-        direction = "YUKARI"
-        phase = "ERKEN_UYARI"
-    elif early_total <= -4:
-        direction = "ASAGI"
-        phase = "ERKEN_UYARI"
-    else:
-        direction = "BELIRSIZ"
-        phase = "BEKLEMEDE"
-    
-    rsi = 30 + random.random() * 40
-    price = 10 + random.random() * 90
-    
-    reasons = []
-    if early_bull > 8:
-        reasons.append({
-            "type": "VOLATILITY_SQUEEZE",
-            "message": "Volatilite sıkışması tespit edildi",
-            "value": "Düşük"
-        })
-    if confirm_bull > 5:
-        reasons.append({
-            "type": "TREND_STRONG",
-            "message": "Güçlü yükseliş trendi",
-            "value": "EMA uyumu"
-        })
-    if rsi < 35:
-        reasons.append({
-            "type": "RSI_OVERSOLD",
-            "message": "RSI aşırı satım bölgesinde",
-            "value": round(rsi, 2)
-        })
-    elif rsi > 65:
-        reasons.append({
-            "type": "RSI_OVERBOUGHT",
-            "message": "RSI aşırı alım bölgesinde",
-            "value": round(rsi, 2)
-        })
-    
-    return {
-        "kod": symbol,
-        "phase": phase,
-        "direction": direction,
-        "early_bull_score": early_bull,
-        "early_bear_score": early_bear,
-        "confirm_bull_score": confirm_bull,
-        "confirm_bear_score": confirm_bear,
-        "early_reasons": reasons if direction != "BELIRSIZ" else [],
-        "confirm_reasons": reasons if phase == "ONAY_ALINAN" else [],
-        "current_price": round(price, 2),
-        "rsi": round(rsi, 2),
-        "ema20": round(price * 0.98, 2),
-        "ema50": round(price * 0.96, 2),
-        "ema200": round(price * 0.92, 2),
-        "volume": random.randint(1000000, 50000000),
-        "timestamp": "2025-01-04T20:00:00"
-    }
-
-# ========== ESKİ ENDPOINT'LER (ÇALIŞIYOR) ==========
-
 @app.route('/')
 def home():
     return jsonify({
@@ -168,10 +90,7 @@ def home():
         "total_stocks": len(BIST_STOCKS),
         "endpoints": {
             "hisse_listesi": "/api/hisseler",
-            "hisse_detay": "/api/hisse/<symbol>",
-            "analiz": "/api/analiz/<symbol>",
-            "filtre": "/api/filtre?direction=YUKARI",
-            "arama": "/api/arama?q=THY"
+            "hisse_detay": "/api/hisse/<symbol>"
         }
     })
 
@@ -182,13 +101,11 @@ def get_hisseler():
     for kod in BIST_STOCKS:
         hisseler.append({
             "kod": kod,
-            "ad": kod
+            "ad": kod,
+            "kapanis": round(10 + random.uniform(0, 100), 2),
+            "hacim": random.randint(100000, 50000000)
         })
-    return jsonify({
-        "count": len(hisseler),
-        "hisseler": hisseler,
-        "timestamp": "2025-01-04T20:00:00"
-    })
+    return jsonify({"data": hisseler})
 
 @app.route('/api/hisse/<symbol>')
 def get_hisse_detay(symbol):
@@ -199,6 +116,7 @@ def get_hisse_detay(symbol):
         return jsonify({"error": f"{symbol} hissesi bulunamadı"}), 404
     
     data = []
+    # Her hisse farklı fiyat aralığında
     base_price = 20.0 + random.uniform(0, 80)
     
     for i in range(100):
@@ -218,63 +136,6 @@ def get_hisse_detay(symbol):
         base_price = price
     
     return jsonify({"data": data})
-
-# ========== YENİ ENDPOINT'LER ==========
-
-@app.route('/api/analiz/<symbol>')
-def analyze_single(symbol):
-    """Tek hisse analizi"""
-    symbol = symbol.upper()
-    
-    if symbol not in BIST_STOCKS:
-        return jsonify({"error": f"{symbol} hissesi bulunamadı"}), 404
-    
-    result = analyze_hisse(symbol)
-    return jsonify(result)
-
-@app.route('/api/filtre')
-def filter_stocks():
-    """Hisseleri filtrele"""
-    direction = request.args.get('direction', '').upper()
-    limit = int(request.args.get('limit', 100))
-    
-    results = []
-    for kod in BIST_STOCKS[:limit]:
-        analysis = analyze_hisse(kod)
-        
-        if direction and analysis['direction'] != direction:
-            continue
-        
-        results.append(analysis)
-    
-    return jsonify({
-        "count": len(results),
-        "filter": direction if direction else "ALL",
-        "results": results,
-        "timestamp": "2025-01-04T20:00:00"
-    })
-
-@app.route('/api/arama')
-def search_stocks():
-    """Hisse arama"""
-    query = request.args.get('q', '').upper()
-    
-    if not query or len(query) < 2:
-        return jsonify({"error": "En az 2 karakter giriniz"}), 400
-    
-    results = []
-    for kod in BIST_STOCKS:
-        if query in kod:
-            results.append({
-                "kod": kod,
-                "ad": kod
-            })
-    
-    return jsonify({
-        "count": len(results),
-        "query": query,
-        "results": results
-    })
 
 if __name__ == '__main__':
     app.run(debug=True)
