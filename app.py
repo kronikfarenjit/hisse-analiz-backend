@@ -1,6 +1,6 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
-import isyatirimhisse as isy
+from isyatirimhisse.hisse import Hisse
 import pandas as pd
 
 app = Flask(__name__)
@@ -13,7 +13,7 @@ def home():
 @app.route('/api/hisseler')
 def get_hisseler():
     try:
-        hisse = isy.Hisse()
+        hisse = Hisse()
         df = hisse.tum_hisseler()
         
         hisseler = []
@@ -31,7 +31,7 @@ def get_hisseler():
 @app.route('/api/hisse/<symbol>')
 def get_hisse_detay(symbol):
     try:
-        hisse = isy.Hisse()
+        hisse = Hisse()
         df = hisse.gunluk(sembol=symbol, baslangic='01-01-2024', bitis='04-01-2026')
         
         if df.empty:
